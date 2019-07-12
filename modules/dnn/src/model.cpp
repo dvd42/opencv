@@ -127,6 +127,19 @@ void ClassificationModel::classify(InputArray frame, int& classId, float& conf)
     std::tie(classId, conf) = classify(frame);
 }
 
+GenerationModel::GenerationModel(const String& model, const String& config)
+    : Model(model, config) {};
+
+GenerationModel::GenerationModel(const Net& network) : Model(network) {};
+
+Mat GenerationModel::generate(InputArray frame){
+
+    std::vector<Mat> outs;
+    impl->predict(*this, frame.getMat(), outs);
+    CV_Assert(outs.size() == 1);
+    return outs[0];
+}
+
 DetectionModel::DetectionModel(const String& model, const String& config)
     : Model(model, config) {};
 

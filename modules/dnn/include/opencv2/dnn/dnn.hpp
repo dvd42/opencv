@@ -1104,6 +1104,36 @@ CV__DNN_INLINE_NS_BEGIN
          CV_WRAP void classify(InputArray frame, CV_OUT int& classId, CV_OUT float& conf);
      };
 
+     /** @brief This class represents high-level API for generative models.
+      *
+      * GenerationModel allows to set params for preprocessing input image.
+      * GeneraionModel creates net from file with trained weights and config,
+      * sets preprocessing input, runs forward pass and returns generated image.
+      */
+     class CV_EXPORTS_W GenerationModel: public Model
+     {
+     public:
+         /**
+          * @brief Create generation model from network represented in one of the supported formats.
+          * An order of @p model and @p config arguments does not matter.
+          * @param[in] model Binary file contains trained weights.
+          * @param[in] config Text file contains network configuration.
+          */
+          CV_WRAP GenerationModel(const String& model, const String& config = "");
+
+         /**
+          * @brief Create model from deep learning network.
+          * @param[in] network Net object.
+          */
+         CV_WRAP GenerationModel(const Net& network);
+
+         /** @brief Given the @p input frame, create input blob, run net and return generated image.
+          *  @param[in]  frame  The input image.
+          */
+         CV_WRAP Mat generate(InputArray frame);
+
+     };
+
      /** @brief This class represents high-level API for object detection networks.
       *
       * DetectionModel allows to set params for preprocessing input image.

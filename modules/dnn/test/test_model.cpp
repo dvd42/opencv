@@ -4,6 +4,7 @@
 
 #include "test_precomp.hpp"
 #include <opencv2/dnn/shape_utils.hpp>
+#include <opencv2/core.hpp>
 #include "npy_blob.hpp"
 namespace opencv_test { namespace {
 
@@ -11,7 +12,7 @@ template<typename TString>
 static std::string _tf(TString filename)
 {
     String rootFolder = "dnn/";
-    return findDataFile(rootFolder + filename);
+    return findDataFile(rootFolder + filename, false);
 }
 
 
@@ -69,6 +70,27 @@ public:
         EXPECT_EQ(prediction.first, ref.first);
         ASSERT_NEAR(prediction.second, ref.second, norm);
     }
+
+    void testGenerativeModel(const Net& network, const std::string& inImgPath,
+                             const std::string& outImgPath, float norm,
+                             const Size& size = {-1, -1}, Scalar mean = Scalar(),
+                             double scale = 1.0, bool swapRB = false, bool crop = false)
+    {
+        checkBackend();
+
+        Mat frame = imread(inImgPath);
+        Mat out;
+        Mat exp = blobFromNPY(outImgPath);
+
+        GenerationModel model(network);
+        model.setInputSize(size).setInputMean(mean).setInputScale(scale)
+             .setInputSwapRB(swapRB).setInputCrop(crop);
+
+        out = model.generate(frame);
+
+        normAssert(out, exp, "", norm, norm);
+    }
+
 };
 
 TEST_P(Test_Model, Classify)
@@ -85,9 +107,22 @@ TEST_P(Test_Model, Classify)
     testClassifyModel(weights_file, config_file, img_path, ref, norm, size);
 }
 
-
-TEST_P(Test_Model, DetectRegion)
+TEST_P(Test_Model, Generative)
 {
+    std::string inp = _tf("coffe_cup.jpg");
+    Net network = readNetFromONNX(_tf("generative.onnx"));
+    std::string exp = _tf("generative_exp.npy");
+
+    Size size{512, 512};
+    float norm = 1e-4;
+    double scale = 1.0/0.5;
+    Scalar mean = Scalar(0.5, 0.5, 0.5);
+    bool swapRB = true;
+
+    testGenerativeModel(network, inp, exp, norm, size, mean, scale, swapRB);
+}
+
+TEST_P(Test_Model, DetectRegion) {
     applyTestTag(CV_TEST_TAG_LONG, CV_TEST_TAG_MEMORY_1GB);
 
 #if defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_GE(2019010000)
