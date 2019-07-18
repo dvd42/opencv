@@ -127,6 +127,68 @@ void ClassificationModel::classify(InputArray frame, int& classId, float& conf)
     std::tie(classId, conf) = classify(frame);
 }
 
+GenerationModel::GenerationModel(const String& model, const String& config)
+    : Model(model, config) {};
+
+GenerationModel::GenerationModel(const Net& network) : Model(network) {};
+
+std::vector<Mat> GenerationModel::forward(InputArray frame){
+
+    std::vector<Mat> outs;
+    std::vector<Mat> images;
+    impl->predict(*this, frame.getMat(), outs);
+    CV_Assert(outs.size() == 1);
+
+    imagesFromBlob(outs[0], images);
+    for (int i=0; i != images.size(); i++)
+        images[i].convertTo(images[i], CV_8U);
+
+    return images;
+}
+
+SegmentationModel::SegmentationModel(const String& model, const String& config)
+    : Model(model, config) {};
+
+SegmentationModel::SegmentationModel(const Net& network) : Model(network) {};
+
+Mat SegmentationModel::forward(InputArray frame){
+
+    std::vector<Mat> outs;
+    impl->predict(*this, frame.getMat(), outs);
+    CV_Assert(outs.size() == 1);
+    Mat score = outs[0];
+    const int batch = score.size[0];
+    const int chns = score.size[1];
+    const int rows = score.size[2];
+    const int cols = score.size[3];
+
+    Mat maxCl = Mat::zeros(rows, cols, CV_32F);
+    Mat maxVal(rows, cols, CV_32F, score.data);
+
+    //Argmax over channels
+    for (int b=0; b < batch; b++)
+    {
+        for (int ch = 1; ch < chns; ch++)
+        {
+            for (int row = 0; row < rows; row++)
+            {
+                const float *ptrScore = score.ptr<float>(b, ch, row);
+                float *ptrMaxCl = maxCl.ptr<float>(row);
+                float *ptrMaxVal = maxVal.ptr<float>(row);
+                for (int col = 0; col < cols; col++)
+                {
+                    if (ptrScore[col] >= ptrMaxVal[col])
+                    {
+                        ptrMaxVal[col] = ptrScore[col];
+                        ptrMaxCl[col] = ch;
+                    }
+                }
+            }
+        }
+}
+    return maxCl;
+}
+
 DetectionModel::DetectionModel(const String& model, const String& config)
     : Model(model, config) {};
 

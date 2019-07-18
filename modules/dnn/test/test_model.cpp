@@ -69,6 +69,49 @@ public:
         EXPECT_EQ(prediction.first, ref.first);
         ASSERT_NEAR(prediction.second, ref.second, norm);
     }
+
+    void testGenerativeModel(const Net& network, const std::string& inImgPath,
+                             const std::string& outImgPath, float norm,
+                             const Size& size = {-1, -1}, Scalar mean = Scalar(),
+                             double scale = 1.0, bool swapRB = false, bool crop = false)
+    {
+        checkBackend();
+
+        Mat frame = imread(inImgPath);
+        std::vector<Mat> out;
+        Mat exp = blobFromNPY(outImgPath);
+        std::vector<Mat> exp_images;
+
+        GenerationModel model(network);
+        model.setInputSize(size).setInputMean(mean).setInputScale(scale)
+             .setInputSwapRB(swapRB).setInputCrop(crop);
+
+        out = model.forward(frame);
+
+        imagesFromBlob(exp, exp_images);
+        exp_images[0].convertTo(exp_images[0], CV_8U);
+        normAssert(exp_images[0], out[0], "", norm, norm);
+    }
+
+    void testSegmentationModel(const Net& network, const std::string& inImgPath,
+                             const std::string& outImgPath, float norm,
+                             const Size& size = {-1, -1}, Scalar mean = Scalar(),
+                             double scale = 1.0, bool swapRB = false, bool crop = false)
+    {
+        checkBackend();
+
+        Mat frame = imread(inImgPath);
+        Mat scores;
+        Mat exp = blobFromNPY(outImgPath);
+
+        SegmentationModel model(network);
+        model.setInputSize(size).setInputMean(mean).setInputScale(scale)
+             .setInputSwapRB(swapRB).setInputCrop(crop);
+
+        scores = model.forward(frame);
+
+        normAssert(scores, exp, "", norm, norm);
+    }
 };
 
 TEST_P(Test_Model, Classify)
@@ -200,6 +243,36 @@ TEST_P(Test_Model, DetectionMobilenetSSD)
 
     testDetectModel(weights_file, config_file, img_path, refClassIds, refConfidences, refBoxes,
                     scoreDiff, iouDiff, confThreshold, nmsThreshold, size, mean, scale);
+}
+
+TEST_P(Test_Model, Generative)
+{
+    std::string inp = _tf("coffe_cup.jpg");
+    Net network = readNetFromONNX(_tf("generative.onnx"));
+    std::string exp = _tf("generative_exp.npy");
+
+    Size size{512, 512};
+    float norm = 1e-4;
+    double scale = 1.0/0.5;
+    Scalar mean = Scalar(0.5, 0.5, 0.5);
+    bool swapRB = true;
+
+    testGenerativeModel(network, inp, exp, norm, size, mean, scale, swapRB);
+}
+
+TEST_P(Test_Model, Segmentation)
+{
+    std::string inp = _tf("dog416.png");
+    Net network = readNetFromONNX(_tf("segmentation.onnx"));
+    std::string exp = _tf("segmentation_exp.npy");
+
+    Size size{512, 512};
+    float norm = 0;
+    double scale = 1.0/0.5;
+    Scalar mean = Scalar(0.5, 0.5, 0.5);
+    bool swapRB = true;
+
+    testSegmentationModel(network, inp, exp, norm, size, mean, scale, swapRB);
 }
 
 INSTANTIATE_TEST_CASE_P(/**/, Test_Model, dnnBackendsAndTargets());
